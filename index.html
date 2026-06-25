@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>BingoYa — Juega en línea</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f0a2e;--bg2:#1a0a4e;--bg3:#1e1060;
+  --card:rgba(255,255,255,0.04);--border:rgba(255,255,255,0.08);
+  --text:#fff;--muted:rgba(255,255,255,0.45);--hint:rgba(255,255,255,0.2);
+  --purple:#7c3aed;--purple2:#a855f7;
+  --gold:#f9c74f;--orange:#f3722c;--green:#4ade80;--red:#f87171;--blue:#60a5fa;
+}
+body{background:var(--bg);font-family:'Nunito',sans-serif;color:var(--text);min-height:100vh}
+.screen{display:none;min-height:100vh}.screen.active{display:block}
+.topbar{background:linear-gradient(135deg,var(--bg2),var(--bg3));padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.logo{font-size:20px;font-weight:900;background:linear-gradient(90deg,var(--gold),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--purple),var(--purple2));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff;flex-shrink:0;cursor:pointer}
+/* AUTH */
+.auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--bg)}
+.auth-card{background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:28px 24px;width:100%;max-width:380px}
+.auth-logo{font-size:36px;font-weight:900;background:linear-gradient(90deg,var(--gold),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-align:center;margin-bottom:4px}
+.auth-tagline{text-align:center;font-size:13px;color:var(--muted);margin-bottom:22px;font-weight:700}
+.auth-tabs{display:flex;background:rgba(255,255,255,0.04);border-radius:12px;padding:3px;margin-bottom:20px;gap:3px}
+.auth-tab{flex:1;padding:8px;border-radius:10px;text-align:center;font-size:13px;font-weight:800;cursor:pointer;color:var(--muted);transition:all .2s}
+.auth-tab.active{background:linear-gradient(135deg,var(--purple),var(--purple2));color:#fff}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.field label{font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
+.field input,.field select{background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;outline:none;transition:border .2s;width:100%}
+.field input:focus,.field select:focus{border-color:var(--purple)}
+.field input::placeholder{color:var(--hint)}
+.field select option{background:#1e1060}
+.btn{padding:11px 20px;border-radius:12px;border:none;font-family:'Nunito',sans-serif;font-size:14px;font-weight:800;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn-primary{background:linear-gradient(135deg,var(--purple),var(--purple2));color:#fff}
+.btn-success{background:rgba(74,222,128,0.15);color:var(--green);border:1px solid rgba(74,222,128,0.3)}
+.btn-danger{background:rgba(248,113,113,0.15);color:var(--red);border:1px solid rgba(248,113,113,0.3)}
+.btn-ghost{background:rgba(255,255,255,0.06);color:var(--text);border:1px solid var(--border)}
+.btn-gold{background:linear-gradient(135deg,#92400e,#d97706);color:#fff}
+.btn:hover{opacity:.88;transform:translateY(-1px)}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.btn-full{width:100%}
+.err-msg{color:var(--red);font-size:13px;text-align:center;margin-top:8px;display:none}
+/* LOBBY */
+.lobby-wrap{padding:16px;padding-bottom:80px}
+.sec-titulo{font-size:16px;font-weight:900;margin-bottom:4px}
+.sec-sub{font-size:13px;color:var(--muted);margin-bottom:14px}
+.partida-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:12px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+.partida-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:4px 0 0 4px}
+.partida-card.en_curso::before{background:linear-gradient(180deg,#4ade80,#22c55e)}
+.partida-card.abierta::before{background:linear-gradient(180deg,var(--gold),var(--orange))}
+.partida-card:hover{background:rgba(255,255,255,0.07);transform:translateY(-2px)}
+.badge{font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;white-space:nowrap}
+.badge-en_curso{background:rgba(74,222,128,0.15);color:var(--green);border:1px solid rgba(74,222,128,0.3)}
+.badge-abierta{background:rgba(249,199,79,0.15);color:var(--gold);border:1px solid rgba(249,199,79,0.3)}
+.badge-pendiente{background:rgba(249,199,79,0.15);color:var(--gold);border:1px solid rgba(249,199,79,0.3)}
+.badge-aprobado{background:rgba(74,222,128,0.15);color:var(--green);border:1px solid rgba(74,222,128,0.3)}
+.badge-rechazado{background:rgba(248,113,113,0.15);color:var(--red);border:1px solid rgba(248,113,113,0.3)}
+.badge-disponible{background:rgba(96,165,250,0.15);color:var(--blue);border:1px solid rgba(96,165,250,0.3)}
+/* SALA DE JUEGO */
+.sala-layout{display:flex;flex-direction:column;height:calc(100vh - 56px)}
+.bola-panel{background:linear-gradient(135deg,#1e1060,#2d1a80);padding:12px 14px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);flex-shrink:0}
+.bola-grande{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--orange));display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0}
+.bola-grande.nueva{animation:bolaIn .4s ease}
+@keyframes bolaIn{0%{transform:scale(0.4);opacity:0}60%{transform:scale(1.2)}100%{transform:scale(1);opacity:1}}
+.bola-letra-g{font-size:12px;font-weight:900;color:rgba(255,255,255,0.85);line-height:1}
+.bola-num-g{font-size:24px;font-weight:900;color:#fff;line-height:1.1}
+.bola-info{flex:1;min-width:0}
+.bolas-recientes{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.bm{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:#fff;flex-shrink:0}
+.bm.B{background:#4361ee}.bm.I{background:#7209b7}.bm.N{background:#f3722c}.bm.G{background:#4cc9f0;color:#0a2a38}.bm.O{background:#e63946}
+.rondas-strip{display:flex;gap:6px;overflow-x:auto;padding:8px 12px;border-bottom:1px solid var(--border);flex-shrink:0;-webkit-overflow-scrolling:touch}
+.rondas-strip::-webkit-scrollbar{height:2px}
+.ronda-chip{flex-shrink:0;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:800;border:1px solid var(--border);color:var(--muted);background:rgba(255,255,255,0.04);white-space:nowrap}
+.ronda-chip.activa{background:linear-gradient(135deg,var(--purple),var(--purple2));color:#fff;border-color:transparent}
+.ronda-chip.mayor{background:linear-gradient(135deg,#92400e,#d97706);color:#fff;border-color:transparent}
+.ronda-chip.done{text-decoration:line-through;opacity:.3}
+/* SALA MAIN: cartones + chat lado a lado en desktop */
+.sala-main{display:flex;flex:1;overflow:hidden}
+.cartones-panel{flex:1;overflow-y:auto;padding:10px 12px;padding-bottom:20px}
+.cartones-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+.carton-card{background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:14px;padding:12px;transition:border .3s}
+.carton-card.bingo-listo{border-color:var(--green);box-shadow:0 0 20px rgba(74,222,128,0.2)}
+.ct-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.ct-num{font-size:12px;font-weight:800;color:var(--muted)}
+.col-headers{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;margin-bottom:3px}
+.col-h{text-align:center;font-size:11px;font-weight:900;padding:2px 0}
+.col-h.B{color:#4361ee}.col-h.I{color:#7209b7}.col-h.N{color:#f3722c}.col-h.G{color:#4cc9f0}.col-h.O{color:#e63946}
+.grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:3px}
+.celda{aspect-ratio:1;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.5);border:1px solid rgba(255,255,255,0.06);transition:all .3s}
+.celda.marcada{background:linear-gradient(135deg,var(--purple),var(--purple2));color:#fff;border-color:transparent;transform:scale(1.05)}
+.celda.free{background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:var(--gold);font-size:9px;font-weight:900;border-color:rgba(79,179,255,0.3)}
+.bingo-btn{width:100%;margin-top:8px;padding:10px;border-radius:10px;border:none;font-family:'Nunito',sans-serif;font-size:14px;font-weight:900;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.25);transition:all .3s;cursor:not-allowed}
+.bingo-btn.listo{background:linear-gradient(135deg,#4ade80,#22c55e);color:#052e16;animation:glow 1s ease-in-out infinite alternate;cursor:pointer}
+@keyframes glow{from{box-shadow:0 0 8px rgba(74,222,128,0.4)}to{box-shadow:0 0 22px rgba(74,222,128,0.8)}}
+/* CHAT */
+.chat-panel{width:300px;border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;background:rgba(0,0,0,0.2)}
+.chat-header{padding:10px 12px;border-bottom:1px solid var(--border);font-size:13px;font-weight:800;display:flex;align-items:center;gap:6px;flex-shrink:0}
+.chat-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.chat-msgs{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px}
+.chat-msgs::-webkit-scrollbar{width:3px}
+.chat-msgs::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:2px}
+.chat-msg{background:rgba(255,255,255,0.05);border-radius:10px;padding:7px 10px;font-size:12px;word-break:break-word}
+.chat-msg.sistema{background:rgba(249,199,79,0.1);border:1px solid rgba(249,199,79,0.2);text-align:center;font-size:11px;color:var(--gold)}
+.chat-msg.bingo-msg{background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.3);text-align:center;font-size:12px;font-weight:800;color:var(--green)}
+.chat-autor{font-size:10px;font-weight:800;color:var(--purple2);margin-bottom:2px}
+.chat-texto{color:rgba(255,255,255,0.85)}
+.reacciones-bar{display:flex;gap:4px;padding:6px 10px;border-top:1px solid var(--border);flex-shrink:0}
+.reac-btn{background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:16px;cursor:pointer;transition:all .2s}
+.reac-btn:hover{background:rgba(255,255,255,0.12);transform:scale(1.1)}
+.chat-input-area{display:flex;gap:6px;padding:8px 10px;border-top:1px solid var(--border);flex-shrink:0;position:relative;z-index:10}
+.chat-input{flex:1;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:10px;padding:8px 12px;color:var(--text);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;outline:none;-webkit-user-select:text;user-select:text;pointer-events:all}
+.chat-input:focus{border-color:var(--purple)}
+.chat-send{background:linear-gradient(135deg,var(--purple),var(--purple2));border:none;border-radius:10px;padding:8px 12px;color:#fff;font-size:16px;cursor:pointer}
+/* MOBILE: chat como drawer */
+@media(max-width:768px){
+  .chat-panel{position:fixed;bottom:0;left:0;right:0;width:100%;height:55vh;z-index:80;border-left:none;border-top:2px solid var(--purple);border-radius:20px 20px 0 0;transform:translateY(100%);transition:transform .3s;box-shadow:0 -8px 32px rgba(0,0,0,0.5)}
+  .chat-panel.open{transform:translateY(0)}
+  .sala-main{flex-direction:column}
+  .cartones-panel{padding-bottom:60px}
+}
+@media(min-width:769px){
+  .chat-fab{display:none!important}
+  #btn-cerrar-chat{display:none}
+}
+/* CARTONES DISPONIBLES */
+.carton-disp{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:10px;cursor:pointer;transition:all .2s}
+.carton-disp:hover{background:rgba(255,255,255,0.07)}
+.carton-disp.seleccionado{border-color:var(--purple2);background:rgba(124,58,237,0.1);box-shadow:0 0 12px rgba(124,58,237,0.2)}
+/* MIS CARTONES */
+.mis-cartones-wrap{padding:16px;padding-bottom:80px}
+/* BOTTOM NAV */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);display:flex;z-index:60;padding-bottom:env(safe-area-inset-bottom)}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;cursor:pointer;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.3px;gap:4px;transition:color .2s;position:relative}
+.nav-item.active{color:var(--purple2)}
+.nav-item svg{width:22px;height:22px;stroke-width:2}
+.chat-fab{position:fixed;bottom:70px;right:16px;width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--purple),var(--purple2));border:none;color:#fff;font-size:20px;cursor:pointer;box-shadow:0 4px 16px rgba(124,58,237,0.5);z-index:70;display:none}
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;display:flex;align-items:flex-end;justify-content:center;padding:0}
+.modal-overlay.hidden{display:none}
+.modal{background:#1a0a4e;border:1px solid var(--border);border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto}
+.modal-handle{width:36px;height:4px;background:rgba(255,255,255,0.2);border-radius:2px;margin:0 auto 16px}
+/* TOAST */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(30px);background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:12px 20px;font-size:14px;font-weight:700;z-index:999;opacity:0;transition:all .3s;white-space:nowrap;max-width:90vw}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.ok{border-color:rgba(74,222,128,0.4);color:var(--green)}
+.toast.err{border-color:rgba(248,113,113,0.4);color:var(--red)}
+.toast.info{border-color:rgba(96,165,250,0.4);color:var(--blue)}
+.empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:14px}
+@media(min-width:769px){
+  .modal-overlay{align-items:center;padding:20px}
+  .modal{border-radius:20px;max-width:600px}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ AUTH ═══ -->
+<div id="screen-auth" class="screen active">
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <div class="auth-logo">BingoYa</div>
+      <div class="auth-tagline">¡Juega, gana y diviértete!</div>
+      <div class="auth-tabs">
+        <div class="auth-tab active" onclick="switchAuth('login',this)">Ingresar</div>
+        <div class="auth-tab" onclick="switchAuth('registro',this)">Registrarme</div>
+      </div>
+      <div id="form-login">
+        <div class="field"><label>Usuario o email</label><input type="text" id="l-user" placeholder="tu_usuario o email"></div>
+        <div class="field"><label>Contraseña</label><input type="password" id="l-pass" placeholder="••••••••"></div>
+        <button class="btn btn-primary btn-full" onclick="doLogin()">Ingresar</button>
+        <div class="err-msg" id="l-err"></div>
+      </div>
+      <div id="form-registro" style="display:none">
+        <div class="field"><label>Nombre completo</label><input type="text" id="r-nombre" placeholder="Tu nombre"></div>
+        <div class="field"><label>Usuario</label><input type="text" id="r-user" placeholder="tu_usuario (sin espacios)"></div>
+        <div class="field"><label>Teléfono WhatsApp</label><input type="tel" id="r-tel" placeholder="+57 300 000 0000"></div>
+        <div class="field"><label>País</label>
+          <select id="r-pais">
+            <option value="CO">🇨🇴 Colombia</option><option value="MX">🇲🇽 México</option>
+            <option value="AR">🇦🇷 Argentina</option><option value="PE">🇵🇪 Perú</option>
+            <option value="CL">🇨🇱 Chile</option><option value="VE">🇻🇪 Venezuela</option>
+            <option value="EC">🇪🇨 Ecuador</option><option value="BO">🇧🇴 Bolivia</option>
+            <option value="UY">🇺🇾 Uruguay</option><option value="PY">🇵🇾 Paraguay</option>
+          </select>
+        </div>
+        <div class="field"><label>Contraseña</label><input type="password" id="r-pass" placeholder="Mínimo 6 caracteres"></div>
+        <button class="btn btn-primary btn-full" onclick="doRegistro()">Crear cuenta</button>
+        <div class="err-msg" id="r-err"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ APP ═══ -->
+<div id="screen-app" class="screen">
+  <div class="topbar">
+    <div class="logo">BingoYa</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="text-align:right">
+        <div style="font-size:11px;color:var(--muted);font-weight:700" id="user-pais"></div>
+        <div style="font-size:13px;font-weight:800" id="user-nombre-top">—</div>
+      </div>
+      <div class="avatar" id="user-avatar" onclick="doLogout()">?</div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div id="tab-lobby" class="tab-content">
+    <div class="lobby-wrap">
+      <div class="sec-titulo">Salas disponibles</div>
+      <div class="sec-sub">Elige una partida y compra tus cartones</div>
+      <div id="lista-partidas"><div class="empty">Cargando partidas...</div></div>
+    </div>
+  </div>
+
+  <div id="tab-mis-cartones" class="tab-content" style="display:none">
+    <div class="mis-cartones-wrap">
+      <div class="sec-titulo">Mis cartones</div>
+      <div class="sec-sub" style="margin-bottom:14px">Estado de tus cartones comprados</div>
+      <div id="lista-mis-cartones"><div class="empty">Cargando...</div></div>
+    </div>
+  </div>
+
+  <div id="tab-sala" class="tab-content" style="display:none">
+    <div class="sala-layout">
+      <!-- Bola panel -->
+      <div class="bola-panel">
+        <div class="bola-grande" id="bola-display">
+          <div class="bola-letra-g" id="bola-letra">—</div>
+          <div class="bola-num-g" id="bola-num">?</div>
+        </div>
+        <div class="bola-info" style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:900;color:#fff;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="sala-nombre">—</div>
+          <div style="font-size:10px;font-weight:800;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Bolas · <span id="bolas-total">0</span>/75</div>
+          <div class="bolas-recientes" id="bolas-recientes"></div>
+        </div>
+      </div>
+      <!-- Rondas -->
+      <div class="rondas-strip" id="rondas-strip"></div>
+      <!-- Main: cartones + chat -->
+      <div class="sala-main">
+        <div class="cartones-panel">
+          <div style="font-size:11px;font-weight:800;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px" id="cartones-label">Tus cartones</div>
+          <div class="cartones-grid" id="cartones-sala"></div>
+        </div>
+        <!-- Chat desktop -->
+        <div class="chat-panel" id="chat-panel">
+          <div class="chat-header" style="justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:6px">
+              <div class="chat-dot"></div>
+              Chat en vivo
+            </div>
+            <button onclick="toggleChatMobile()" style="background:rgba(255,255,255,0.1);border:none;color:rgba(255,255,255,0.6);border-radius:8px;padding:4px 10px;font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif" id="btn-cerrar-chat">✕ Cerrar</button>
+          </div>
+          <div class="chat-msgs" id="chat-msgs"></div>
+          <div class="reacciones-bar">
+            <button class="reac-btn" onclick="enviarReaccion('🎉')">🎉</button>
+            <button class="reac-btn" onclick="enviarReaccion('🙏')">🙏</button>
+            <button class="reac-btn" onclick="enviarReaccion('🔥')">🔥</button>
+            <button class="reac-btn" onclick="enviarReaccion('😱')">😱</button>
+            <button class="reac-btn" onclick="enviarReaccion('👑')">👑</button>
+            <button class="reac-btn" onclick="enviarReaccion('💪')">💪</button>
+          </div>
+          <div class="chat-input-area">
+            <input class="chat-input" id="chat-input" placeholder="Escribe algo..." maxlength="120" onkeydown="if(event.key==='Enter')enviarMensaje()">
+            <button class="chat-send" onclick="enviarMensaje()">➤</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- BINGO FAB -->
+    <button id="bingo-fab" onclick="cantarBingoFab()" style="display:none;position:fixed;bottom:70px;left:16px;background:linear-gradient(135deg,#4ade80,#22c55e);border:none;border-radius:24px;padding:12px 20px;font-family:'Nunito',sans-serif;font-size:15px;font-weight:900;color:#052e16;cursor:pointer;box-shadow:0 4px 20px rgba(74,222,128,0.5);z-index:70;animation:glow 1s ease-in-out infinite alternate">
+      🎉 ¡BINGO!
+    </button>
+    <!-- FAB chat mobile -->
+    <button class="chat-fab" id="chat-fab" onclick="toggleChatMobile()" style="display:flex;align-items:center;gap:6px;width:auto;border-radius:24px;padding:0 16px;font-size:13px;font-weight:800;font-family:'Nunito',sans-serif">
+  💬 Chat
+</button>
+  </div>
+
+  <!-- Bottom nav -->
+  <div class="bottom-nav">
+    <div class="nav-item active" id="nav-lobby" onclick="showTab('lobby',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Salas
+    </div>
+    <div class="nav-item" id="nav-mis-cartones" onclick="showTab('mis-cartones',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+      Mis cartones
+    </div>
+    <div class="nav-item" id="nav-sala" onclick="showTab('sala',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+      En vivo
+    </div>
+  </div>
+</div>
+
+<!-- MODAL COMPRA -->
+<div class="modal-overlay hidden" id="modal-compra">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div style="font-size:17px;font-weight:900;margin-bottom:4px" id="compra-titulo">Elige tus cartones</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:14px" id="compra-precio-label"></div>
+    <div style="background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div style="font-size:13px;font-weight:800;color:var(--purple2)" id="carrito-count">Selecciona los cartones que quieres</div>
+      <div style="font-size:24px;font-weight:900;color:var(--gold)" id="precio-total">$0</div>
+    </div>
+    <div style="font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px">Cartones disponibles</div>
+    <div id="cartones-disponibles-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;max-height:38vh;overflow-y:auto;padding-right:4px;margin-bottom:14px"></div>
+    <div style="background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px">Pago</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:10px">1. Selecciona tus cartones.<br>2. Realiza el pago al número del administrador.<br>3. Escribe la referencia de tu pago abajo.<br>4. El admin aprobará tus cartones en breve.</div>
+      <div class="field"><label>Referencia de pago</label><input type="text" id="compra-ref" placeholder="Número de transacción..."></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" style="flex:1" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn btn-primary" style="flex:2" id="btn-confirmar-compra" onclick="confirmarCompra()" disabled>Confirmar compra</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://xmnnookdakkfrqupqbkm.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhtbm5vb2tkYWtrZnJxdXBxYmttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMzcxNTksImV4cCI6MjA5NzcxMzE1OX0.-E7NOn5p_c0ROcUYrqOgjCg2oewWjmHbWgGsR9CX6WY';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ─── ESTADO ───────────────────────────────
+let jugadorActual = null;
+let partidaActual = null;
+let rondaActualId = null;
+let bolasMarcadas = new Set([0]);
+let misCartones   = [];
+let compraPartida = null;
+let carritoSeleccionados = [];
+
+// ─── UTILS ────────────────────────────────
+function toast(msg, tipo='ok'){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + tipo;
+  setTimeout(()=>t.className='toast', 3200);
+}
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+id).classList.add('active');
+}
+
+function showTab(id, el){
+  document.querySelectorAll('.tab-content').forEach(t=>t.style.display='none');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('tab-'+id).style.display = (id==='sala') ? 'flex' : 'block';
+  document.getElementById('tab-'+id).style.flexDirection = (id==='sala') ? 'column' : '';
+  document.getElementById('tab-'+id).style.height = (id==='sala') ? 'calc(100vh - 56px)' : '';
+  document.getElementById('nav-'+id)?.classList.add('active');
+  const fab = document.getElementById('chat-fab');
+  if(fab) fab.style.display = (id==='sala') ? 'flex' : 'none';
+  if(id==='lobby') cargarPartidas();
+  if(id==='mis-cartones') cargarMisCartones();
+  if(id==='sala') cargarSala();
+}
+
+function cerrarModal(){ document.getElementById('modal-compra').classList.add('hidden'); }
+
+// ─── TEXT TO SPEECH ───────────────────────
+let audioDesbloqueado = false;
+let bolaPendiente = null;
+
+// Desbloquear audio en el primer toque del usuario
+function desbloquearAudio(){
+  if(audioDesbloqueado) return;
+  try {
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(' ');
+    utt.volume = 0;
+    window.speechSynthesis.speak(utt);
+    audioDesbloqueado = true;
+    // Si había una bola pendiente, leerla ahora
+    if(bolaPendiente){
+      setTimeout(()=>{ leerBola(bolaPendiente.letra, bolaPendiente.numero); bolaPendiente=null; }, 300);
+    }
+  } catch(e){}
+}
+
+// Activar con cualquier toque en la página
+document.addEventListener('click', desbloquearAudio, {once: false});
+document.addEventListener('touchstart', desbloquearAudio, {once: false});
+
+function activarAudio(btn){
+  desbloquearAudio();
+  if(btn){
+    btn.textContent = '🔊 Audio ON';
+    btn.style.background = 'rgba(74,222,128,0.15)';
+    btn.style.borderColor = 'rgba(74,222,128,0.3)';
+    btn.style.color = '#4ade80';
+  }
+  toast('Audio activado','ok');
+}
+
+function leerBola(letra, numero){
+  if(!window.speechSynthesis) return;
+  if(!audioDesbloqueado){
+    bolaPendiente = {letra, numero};
+    return;
+  }
+  try {
+    window.speechSynthesis.cancel();
+    // Esperar un poco para que cancel() surta efecto
+    setTimeout(()=>{
+      const texto = `Bola ${letra} ${numero}`;
+      const utt = new SpeechSynthesisUtterance(texto);
+      const voces = window.speechSynthesis.getVoices();
+      const vozEs = voces.find(v=>v.lang.startsWith('es') && v.localService) 
+                 || voces.find(v=>v.lang.startsWith('es'))
+                 || voces[0];
+      if(vozEs) utt.voice = vozEs;
+      utt.lang = 'es-ES';
+      utt.rate = 0.82;
+      utt.pitch = 1.1;
+      utt.volume = 1;
+      window.speechSynthesis.speak(utt);
+    }, 150);
+  } catch(e){ console.log('TTS error:',e); }
+}
+
+// Precargar voces
+if(window.speechSynthesis){
+  window.speechSynthesis.getVoices();
+  window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+}
+
+// ─── AUTH PERSONALIZADO ───────────────────
+function switchAuth(modo, el){
+  document.querySelectorAll('.auth-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('form-login').style.display   = modo==='login'   ? 'block':'none';
+  document.getElementById('form-registro').style.display = modo==='registro' ? 'block':'none';
+}
+
+async function doLogin(){
+  const user = document.getElementById('l-user').value.trim();
+  const pass = document.getElementById('l-pass').value;
+  const errEl = document.getElementById('l-err');
+  errEl.style.display='none';
+  if(!user||!pass){ errEl.textContent='Completa todos los campos'; errEl.style.display='block'; return; }
+
+  const {data, error} = await sb.rpc('login_jugador',{p_username:user, p_password:pass});
+  if(error||data?.error){
+    errEl.textContent = data?.error || 'Error al ingresar';
+    errEl.style.display='block'; return;
+  }
+  localStorage.setItem('bingoya_token', data.token);
+  jugadorActual = {id:data.jugador_id, nombre:data.nombre, username:data.username, email:data.email, pais:data.pais};
+  iniciarApp();
+}
+
+async function doRegistro(){
+  const nombre = document.getElementById('r-nombre').value.trim();
+  const user   = document.getElementById('r-user').value.trim().replace(/\s/g,'');
+  const tel    = document.getElementById('r-tel').value.trim();
+  const pais   = document.getElementById('r-pais').value;
+  const pass   = document.getElementById('r-pass').value;
+  const errEl  = document.getElementById('r-err');
+  errEl.style.display='none';
+
+  if(!nombre||!user||!pass){ errEl.textContent='Completa todos los campos'; errEl.style.display='block'; return; }
+  if(pass.length<6){ errEl.textContent='La contraseña debe tener mínimo 6 caracteres'; errEl.style.display='block'; return; }
+
+  const {data, error} = await sb.rpc('registrar_jugador',{
+    p_nombre:nombre, p_username:user, p_email:null,
+    p_telefono:tel||null, p_pais:pais, p_password:pass
+  });
+  if(error||data?.error){
+    errEl.textContent = data?.error || 'Error al registrar';
+    errEl.style.display='block'; return;
+  }
+  localStorage.setItem('bingoya_token', data.token);
+  jugadorActual = {id:data.jugador_id, nombre, username:user, email, pais};
+  iniciarApp();
+  toast('¡Bienvenido a BingoYa! 🎉');
+}
+
+async function verificarSesion(){
+  const token = localStorage.getItem('bingoya_token');
+  if(!token) return false;
+  const {data, error} = await sb.rpc('verificar_sesion',{p_token:token});
+  if(error||data?.error){ localStorage.removeItem('bingoya_token'); return false; }
+  jugadorActual = {id:data.jugador_id, nombre:data.nombre, username:data.username, email:data.email, pais:data.pais};
+  return true;
+}
+
+async function doLogout(){
+  if(!confirm('¿Cerrar sesión?')) return;
+  localStorage.removeItem('bingoya_token');
+  jugadorActual = null;
+  location.reload();
+}
+
+function iniciarApp(){
+  if(!jugadorActual) return;
+  document.getElementById('user-nombre-top').textContent = jugadorActual.nombre.split(' ')[0];
+  document.getElementById('user-avatar').textContent = jugadorActual.nombre.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase();
+  document.getElementById('user-pais').textContent = jugadorActual.pais||'';
+  showScreen('app');
+  cargarPartidas();
+  suscribirRealtime();
+}
+
+// Init
+(async()=>{
+  const ok = await verificarSesion();
+  if(ok) iniciarApp();
+})();
+
+// ─── LOBBY ────────────────────────────────
+async function cargarPartidas(){
+  const {data} = await sb.from('partidas').select('*, rondas(*)').in('estado',['abierta','en_curso']).order('created_at',{ascending:false});
+  const el = document.getElementById('lista-partidas');
+  if(!data?.length){ el.innerHTML='<div class="empty">No hay partidas disponibles.<br>¡Vuelve pronto!</div>'; return; }
+  el.innerHTML = data.map(p=>{
+    const mayor = p.rondas?.find(r=>r.es_premio_mayor);
+    return `<div class="partida-card ${p.estado}" onclick="abrirPartida('${p.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+        <div style="font-size:16px;font-weight:900">${p.nombre}</div>
+        <span class="badge badge-${p.estado}">${p.estado==='en_curso'?'En vivo':'Abierta'}</span>
+      </div>
+      ${p.descripcion?`<div style="font-size:13px;color:var(--muted);margin-bottom:10px">${p.descripcion}</div>`:''}
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <div><div style="font-size:10px;color:var(--muted);font-weight:800;text-transform:uppercase">Cartón</div><div style="font-weight:900;color:var(--gold)">$${Number(p.precio_carton).toLocaleString('es-CO')}</div></div>
+        <div><div style="font-size:10px;color:var(--muted);font-weight:800;text-transform:uppercase">Premio mayor</div><div style="font-weight:900;color:var(--gold)">$${Number(mayor?.premio||0).toLocaleString('es-CO')}</div></div>
+        <div><div style="font-size:10px;color:var(--muted);font-weight:800;text-transform:uppercase">Rondas</div><div style="font-weight:900">${p.rondas?.length||0}</div></div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:5px;flex-wrap:wrap">
+        ${(p.rondas||[]).sort((a,b)=>a.numero_ronda-b.numero_ronda).map(r=>`<span style="background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:20px;padding:2px 10px;font-size:11px;font-weight:800;color:${r.es_premio_mayor?'var(--gold)':'var(--muted)'}">${r.nombre||'Ronda '+r.numero_ronda} · $${Number(r.premio).toLocaleString('es-CO')}</span>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── COMPRA ───────────────────────────────
+async function abrirPartida(id){
+  if(!jugadorActual){ toast('Debes iniciar sesión primero','err'); return; }
+  const {data:p} = await sb.from('partidas').select('*').eq('id',id).single();
+  compraPartida = p;
+  carritoSeleccionados = [];
+  document.getElementById('compra-titulo').textContent = p.nombre;
+  document.getElementById('compra-precio-label').textContent = `$${Number(p.precio_carton).toLocaleString('es-CO')} por cartón`;
+  document.getElementById('compra-ref').value = '';
+  document.getElementById('precio-total').textContent = '$0';
+  document.getElementById('carrito-count').textContent = 'Selecciona los cartones que quieres';
+  document.getElementById('btn-confirmar-compra').disabled = true;
+  await cargarCartonesDisponibles(id);
+  document.getElementById('modal-compra').classList.remove('hidden');
+}
+
+async function cargarCartonesDisponibles(partidaId){
+  const {data} = await sb.from('cartones').select('*').eq('partida_id',partidaId).eq('estado','disponible').order('numero_carton');
+  const grid = document.getElementById('cartones-disponibles-grid');
+  const letras = ['B','I','N','G','O'];
+  if(!data?.length){ grid.innerHTML='<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">No hay cartones disponibles</div>'; return; }
+  grid.innerHTML = data.map(c=>`
+    <div class="carton-disp" id="cdisp-${c.id}" onclick="toggleCarrito('${c.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+        <div style="font-size:10px;font-weight:800;color:var(--muted)">#${c.numero_carton}</div>
+        <div id="check-${c.id}" style="width:16px;height:16px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:9px;transition:all .2s"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:1px;margin-bottom:2px">
+        ${letras.map(l=>`<div style="text-align:center;font-size:7px;font-weight:900;color:${l==='B'?'#4361ee':l==='I'?'#7209b7':l==='N'?'#f3722c':l==='G'?'#4cc9f0':'#e63946'}">${l}</div>`).join('')}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:2px">
+        ${c.numeros.flat().map(n=>n===0
+          ?`<div style="aspect-ratio:1;border-radius:3px;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);display:flex;align-items:center;justify-content:center;font-size:6px;font-weight:900;color:#f9c74f">★</div>`
+          :`<div style="aspect-ratio:1;border-radius:3px;background:rgba(255,255,255,0.06);border:0.5px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:rgba(255,255,255,0.7)">${n}</div>`
+        ).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleCarrito(cartonId){
+  const idx = carritoSeleccionados.indexOf(cartonId);
+  const card = document.getElementById('cdisp-'+cartonId);
+  const check = document.getElementById('check-'+cartonId);
+  if(idx===-1){
+    carritoSeleccionados.push(cartonId);
+    card.classList.add('seleccionado');
+    check.style.background='linear-gradient(135deg,#7c3aed,#a855f7)';
+    check.style.borderColor='transparent';
+    check.textContent='✓'; check.style.color='#fff';
+  } else {
+    carritoSeleccionados.splice(idx,1);
+    card.classList.remove('seleccionado');
+    check.style.background='transparent';
+    check.style.borderColor='rgba(255,255,255,0.2)';
+    check.textContent='';
+  }
+  const qty = carritoSeleccionados.length;
+  const total = qty * Number(compraPartida.precio_carton);
+  document.getElementById('carrito-count').textContent = qty>0 ? `${qty} cartón${qty>1?'es':''} seleccionado${qty>1?'s':''}` : 'Selecciona los cartones que quieres';
+  document.getElementById('precio-total').textContent = '$'+total.toLocaleString('es-CO');
+  document.getElementById('btn-confirmar-compra').disabled = qty===0;
+}
+
+async function confirmarCompra(){
+  if(!jugadorActual||!carritoSeleccionados.length) return;
+  const ref   = document.getElementById('compra-ref').value.trim();
+  const monto = carritoSeleccionados.length * Number(compraPartida.precio_carton);
+  const {data:tx, error:txErr} = await sb.from('transacciones').insert({
+    jugador_id:jugadorActual.id, partida_id:compraPartida.id,
+    cantidad_cartones:carritoSeleccionados.length, monto_total:monto,
+    referencia_pago:ref||null, estado_pago:'pendiente'
+  }).select().single();
+  if(txErr){ toast('Error al registrar la compra','err'); return; }
+  const {error:cErr} = await sb.from('cartones').update({
+    jugador_id:jugadorActual.id, transaccion_id:tx.id, estado:'pendiente'
+  }).in('id',carritoSeleccionados);
+  if(cErr){ toast('Error al reservar cartones','err'); return; }
+  cerrarModal();
+  toast(`¡${carritoSeleccionados.length} cartón${carritoSeleccionados.length>1?'es':''} reservado${carritoSeleccionados.length>1?'s':''}! Esperando aprobación.`,'info');
+  carritoSeleccionados=[];
+  showTab('mis-cartones', document.getElementById('nav-mis-cartones'));
+}
+
+// ─── MIS CARTONES ─────────────────────────
+async function cargarMisCartones(){
+  if(!jugadorActual) return;
+  const {data} = await sb.from('cartones')
+    .select('*, partidas(id,nombre,estado,precio_carton)')
+    .eq('jugador_id',jugadorActual.id)
+    .order('numero_carton',{ascending:true});
+  const el = document.getElementById('lista-mis-cartones');
+  if(!data?.length){ el.innerHTML='<div class="empty">No tienes cartones aún.<br>¡Compra uno en las salas!</div>'; return; }
+
+  // Agrupar por partida
+  const porPartida = {};
+  data.forEach(c=>{
+    const pid = c.partida_id;
+    if(!porPartida[pid]) porPartida[pid]={partida:c.partidas, cartones:[]};
+    porPartida[pid].cartones.push(c);
+  });
+
+  el.innerHTML = Object.entries(porPartida).map(([pid,grupo])=>{
+    const p = grupo.partida;
+    const enVivo = p?.estado==='en_curso';
+    const total  = grupo.cartones.length;
+    const aprobados = grupo.cartones.filter(c=>c.estado==='aprobado').length;
+    const pendientes = grupo.cartones.filter(c=>c.estado==='pendiente').length;
+
+    return `
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;margin-bottom:14px;overflow:hidden">
+      <!-- Header partida -->
+      <div style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-bottom:1px solid var(--border)" onclick="togglePartidaCartones('${pid}')">
+        <div>
+          <div style="font-size:15px;font-weight:900">${p?.nombre||'Partida'}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">
+            ${total} cartón${total>1?'es':''} · 
+            <span style="color:var(--green)">${aprobados} aprobado${aprobados!==1?'s':''}</span>
+            ${pendientes>0?` · <span style="color:var(--gold)">${pendientes} pendiente${pendientes!==1?'s':''}</span>`:''}
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          ${enVivo?`<span class="badge badge-en_curso">En vivo</span>`:`<span class="badge badge-${p?.estado||'abierta'}">${p?.estado||'abierta'}</span>`}
+          <span id="arrow-${pid}" style="color:var(--muted);font-size:18px;transition:transform .2s">▼</span>
+        </div>
+      </div>
+      
+      <!-- Lista cartones desplegable -->
+      <div id="cartones-grupo-${pid}" style="display:none">
+        ${enVivo?`
+        <div style="padding:10px 16px;background:rgba(74,222,128,0.05);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+          <div style="font-size:13px;font-weight:700;color:var(--green)">🎯 Partida en vivo ahora</div>
+          <button class="btn btn-success" style="font-size:12px;padding:6px 14px" onclick="showTab('sala',document.getElementById('nav-sala'))">Ir a jugar</button>
+        </div>`:''} 
+        ${grupo.cartones.map(ct=>`
+        <div style="padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;justify-content:space-between;align-items:center">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--purple),var(--purple2));display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;flex-shrink:0">#${ct.numero_carton}</div>
+            <div>
+              <div style="font-size:13px;font-weight:800">Cartón #${ct.numero_carton}</div>
+              <div style="font-size:11px;color:var(--muted)">$${Number(p?.precio_carton||0).toLocaleString('es-CO')}</div>
+            </div>
+          </div>
+          <span class="badge badge-${ct.estado}">${ct.estado==='aprobado'?'✓ Aprobado':ct.estado==='pendiente'?'⏳ Pendiente':'✗ Rechazado'}</span>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function togglePartidaCartones(pid){
+  const el = document.getElementById('cartones-grupo-'+pid);
+  const arrow = document.getElementById('arrow-'+pid);
+  const abierto = el.style.display==='block';
+  el.style.display = abierto ? 'none' : 'block';
+  arrow.style.transform = abierto ? 'rotate(0deg)' : 'rotate(180deg)';
+}
+
+// ─── SALA DE JUEGO ────────────────────────
+async function cargarSala(){
+  if(!jugadorActual) return;
+  const {data:cartones} = await sb.from('cartones').select('*, partidas(id,nombre,estado)').eq('jugador_id',jugadorActual.id).eq('estado','aprobado');
+  const enCurso = cartones?.find(c=>c.partidas?.estado==='en_curso');
+  if(!enCurso){
+    document.getElementById('cartones-sala').innerHTML='<div class="empty" style="padding-top:40px">No estás en ninguna partida en vivo.<br>Compra cartones y espera que el admin inicie.</div>';
+    document.getElementById('rondas-strip').innerHTML='';
+    return;
+  }
+  partidaActual = enCurso.partidas.id;
+  const {data:misC} = await sb.from('cartones').select('*').eq('partida_id',partidaActual).eq('jugador_id',jugadorActual.id).eq('estado','aprobado');
+  misCartones = misC||[];
+  document.getElementById('cartones-label').textContent = `Tus cartones (${misCartones.length})`;
+  document.getElementById('sala-nombre').textContent = enCurso.partidas.nombre || 'Partida en vivo';
+  const {data:rondas} = await sb.from('rondas').select('*').eq('partida_id',partidaActual).order('numero_ronda');
+  renderRondasStrip(rondas);
+  const activa = rondas?.find(r=>r.estado==='activa');
+  rondaActualId = activa?.id||null;
+  if(rondaActualId){
+    const {data:bolas} = await sb.from('bolas_sorteadas').select('*').eq('ronda_id',rondaActualId).order('orden');
+    bolasMarcadas = new Set([0, ...(bolas?.map(b=>b.numero)||[])]);
+    if(bolas?.length){
+      const u = bolas[bolas.length-1];
+      actualizarPanelBola(u.numero,u.letra,false);
+      document.getElementById('bolas-total').textContent=bolas.length;
+      renderBolasMini(bolas.slice(-8).reverse());
+    }
+  } else { bolasMarcadas=new Set([0]); }
+  renderCartones();
+  cargarChatMensajes(partidaActual);
+}
+
+function renderRondasStrip(rondas){
+  document.getElementById('rondas-strip').innerHTML=(rondas||[]).map(r=>{
+    let cls='';
+    if(r.estado==='activa') cls='activa';
+    else if(r.estado==='finalizada') cls='done';
+    else if(r.es_premio_mayor) cls='mayor';
+    return `<div class="ronda-chip ${cls}">${r.nombre||'Ronda '+r.numero_ronda} · $${Number(r.premio).toLocaleString('es-CO')}</div>`;
+  }).join('');
+}
+
+function renderCartones(){
+  const el = document.getElementById('cartones-sala');
+  if(!misCartones.length){ el.innerHTML='<div class="empty">Sin cartones aprobados</div>'; return; }
+  el.innerHTML = misCartones.map(c=>buildCartonHTML(c)).join('');
+  verificarBingoFab();
+}
+
+function verificarBingoFab(){
+  const hayBingo = misCartones.some(c=>{
+    const todos = c.numeros.flat().filter(n=>n!==0);
+    return todos.every(n=>bolasMarcadas.has(n));
+  });
+  const fab = document.getElementById('bingo-fab');
+  if(fab) fab.style.display = hayBingo ? 'block' : 'none';
+}
+
+async function cantarBingoFab(){
+  // Encontrar el cartón con bingo
+  const cartonBingo = misCartones.find(c=>{
+    const todos = c.numeros.flat().filter(n=>n!==0);
+    return todos.every(n=>bolasMarcadas.has(n));
+  });
+  if(cartonBingo) await cantarBingo(cartonBingo.id);
+}
+
+function buildCartonHTML(c){
+  const letras=['B','I','N','G','O'];
+  const todosNums = c.numeros.flat().filter(n=>n!==0);
+  const esBingo = todosNums.every(n=>bolasMarcadas.has(n));
+  return `<div class="carton-card ${esBingo?'bingo-listo':''}" id="carton-${c.id}">
+    <div class="ct-header">
+      <div class="ct-num">Cartón #${c.numero_carton}</div>
+      <span class="badge ${esBingo?'badge-aprobado':'badge-pendiente'}">${esBingo?'¡BINGO!':'Jugando'}</span>
+    </div>
+    <div class="col-headers">${letras.map(l=>`<div class="col-h ${l}">${l}</div>`).join('')}</div>
+    <div class="grid5">${c.numeros.flat().map(n=>{
+      if(n===0) return `<div class="celda free marcada">FREE</div>`;
+      return `<div class="celda ${bolasMarcadas.has(n)?'marcada':''}" id="celda-${c.id}-${n}">${n}</div>`;
+    }).join('')}</div>
+    <button class="bingo-btn ${esBingo?'listo':''}" ${esBingo?'':'disabled'} onclick="cantarBingo('${c.id}')">
+      ${esBingo?'🎉 ¡Cantar BINGO!':'Esperando bolas...'}
+    </button>
+  </div>`;
+}
+
+function actualizarPanelBola(num,letra,animar=true){
+  document.getElementById('bola-letra').textContent=letra;
+  document.getElementById('bola-num').textContent=num;
+  if(animar){
+    const bd=document.getElementById('bola-display');
+    bd.classList.remove('nueva'); void bd.offsetWidth; bd.classList.add('nueva');
+    leerBola(letra,num);
+  }
+}
+
+function renderBolasMini(bolas){
+  document.getElementById('bolas-recientes').innerHTML=bolas.map(b=>`<div class="bm ${b.letra}">${b.numero}</div>`).join('');
+}
+
+// ─── CANTAR BINGO ─────────────────────────
+async function cantarBingo(cartonId){
+  if(!rondaActualId){ toast('No hay ronda activa','err'); return; }
+  const {data:valido} = await sb.rpc('validar_bingo',{p_carton_id:cartonId,p_ronda_id:rondaActualId});
+  if(valido){
+    const carton = misCartones.find(c=>c.id===cartonId);
+    await sb.from('notificaciones').insert({jugador_id:jugadorActual.id,tipo:'ganador',mensaje:`¡BINGO! Cartón #${carton?.numero_carton}`,canal:'pantalla'});
+    await sb.from('chat_mensajes').insert({partida_id:partidaActual,jugador_id:jugadorActual.id,nombre:jugadorActual.nombre,mensaje:`🎉 ¡BINGO! ${jugadorActual.nombre} cantó BINGO con el cartón #${carton?.numero_carton}`,tipo:'bingo'});
+    toast('🎉 ¡BINGO VALIDADO! El admin fue notificado.','ok');
+  } else { toast('El cartón aún no está completo','err'); }
+}
+
+// ─── CHAT ─────────────────────────────────
+async function cargarChatMensajes(partidaId){
+  const {data} = await sb.from('chat_mensajes').select('*').eq('partida_id',partidaId).eq('eliminado',false).order('created_at',{ascending:true}).limit(50);
+  const el = document.getElementById('chat-msgs');
+  el.innerHTML='';
+  data?.forEach(m=>agregarMensajeChat(m,false));
+  el.scrollTop=el.scrollHeight;
+}
+
+function agregarMensajeChat(m, scroll=true){
+  const el = document.getElementById('chat-msgs');
+  const div = document.createElement('div');
+  div.className = `chat-msg ${m.tipo==='sistema'?'sistema':m.tipo==='bingo'?'bingo-msg':''}`;
+  div.id = 'msg-'+m.id;
+  if(m.tipo==='texto'||m.tipo==='reaccion'){
+    div.innerHTML=`<div class="chat-autor">${m.nombre}</div><div class="chat-texto">${m.mensaje}</div>`;
+  } else {
+    div.innerHTML=`<div class="chat-texto">${m.mensaje}</div>`;
+  }
+  el.appendChild(div);
+  if(scroll) el.scrollTop=el.scrollHeight;
+}
+
+async function enviarMensaje(){
+  if(!jugadorActual||!partidaActual) return;
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if(!msg) return;
+  input.value='';
+  await sb.from('chat_mensajes').insert({partida_id:partidaActual,jugador_id:jugadorActual.id,nombre:jugadorActual.nombre,mensaje:msg,tipo:'texto'});
+}
+
+async function enviarReaccion(emoji){
+  if(!jugadorActual||!partidaActual) return;
+  await sb.from('chat_mensajes').insert({partida_id:partidaActual,jugador_id:jugadorActual.id,nombre:jugadorActual.nombre,mensaje:emoji,tipo:'reaccion'});
+}
+
+function toggleChatMobile(){
+  const panel = document.getElementById('chat-panel');
+  panel.classList.toggle('open');
+}
+
+// ─── REALTIME ─────────────────────────────
+function suscribirRealtime(){
+  sb.channel('bolas-live').on('postgres_changes',{event:'INSERT',schema:'public',table:'bolas_sorteadas'},(payload)=>{
+    const b=payload.new;
+    bolasMarcadas.add(b.numero);
+    actualizarPanelBola(b.numero,b.letra,true);
+    document.getElementById('bolas-total').textContent=bolasMarcadas.size-1;
+    const mini=document.createElement('div');
+    mini.className=`bm ${b.letra}`; mini.textContent=b.numero;
+    const rec=document.getElementById('bolas-recientes');
+    rec.prepend(mini);
+    if(rec.children.length>8) rec.lastChild?.remove();
+    misCartones.forEach(c=>{
+      const celda=document.getElementById(`celda-${c.id}-${b.numero}`);
+      if(celda){ celda.classList.add('marcada');
+        const todos=c.numeros.flat().filter(n=>n!==0);
+        if(todos.every(n=>bolasMarcadas.has(n))){
+          document.getElementById('carton-'+c.id)?.classList.add('bingo-listo');
+          const btn=document.querySelector(`#carton-${c.id} .bingo-btn`);
+          if(btn){btn.classList.add('listo');btn.disabled=false;btn.textContent='🎉 ¡Cantar BINGO!';}
+          toast('¡Tienes BINGO en el cartón #'+c.numero_carton+'! 🎉','ok');
+        }
+      }
+    });
+  }).subscribe();
+
+  sb.channel('rondas-live').on('postgres_changes',{event:'UPDATE',schema:'public',table:'rondas'},(payload)=>{
+    const r=payload.new;
+    if(r.partida_id===partidaActual){
+      if(r.estado==='activa'){rondaActualId=r.id;bolasMarcadas=new Set([0]);renderCartones();toast('Nueva ronda: '+(r.nombre||'Ronda '+r.numero_ronda),'info');}
+      sb.from('rondas').select('*').eq('partida_id',r.partida_id).order('numero_ronda').then(({data})=>renderRondasStrip(data));
+    }
+  }).subscribe();
+
+  sb.channel('chat-live').on('postgres_changes',{event:'INSERT',schema:'public',table:'chat_mensajes'},(payload)=>{
+    if(payload.new.partida_id===partidaActual&&!payload.new.eliminado) agregarMensajeChat(payload.new);
+  }).subscribe();
+
+  sb.channel('notif-live').on('postgres_changes',{event:'INSERT',schema:'public',table:'notificaciones'},(payload)=>{
+    const n=payload.new;
+    if(n.jugador_id===jugadorActual?.id){
+      if(n.tipo==='carton_aprobado') toast('✅ Tu cartón fue aprobado. ¡Ya puedes jugar!','ok');
+      if(n.tipo==='carton_rechazado') toast('❌ Tu cartón fue rechazado.','err');
+    }
+  }).subscribe();
+}
+
+document.getElementById('modal-compra').addEventListener('click',e=>{ if(e.target===document.getElementById('modal-compra')) cerrarModal(); });
+document.getElementById('l-pass').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
+document.getElementById('r-pass').addEventListener('keydown',e=>{ if(e.key==='Enter') doRegistro(); });
+</script>
+</body>
+</html>

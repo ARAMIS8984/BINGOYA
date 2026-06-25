@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BingoYa — Admin</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f0a2e;--bg2:#1a0a4e;--bg3:#1e1060;
+  --card:rgba(255,255,255,0.04);--border:rgba(255,255,255,0.08);
+  --text:#fff;--muted:rgba(255,255,255,0.45);--hint:rgba(255,255,255,0.2);
+  --purple:#7c3aed;--purple2:#a855f7;
+  --gold:#f9c74f;--orange:#f3722c;--green:#4ade80;--red:#f87171;--blue:#60a5fa;
+}
+body{background:var(--bg);font-family:'Nunito',sans-serif;color:var(--text);min-height:100vh}
+.topbar{background:linear-gradient(135deg,var(--bg2),var(--bg3));padding:14px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.logo{font-size:22px;font-weight:900;background:linear-gradient(90deg,var(--gold),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.logo small{font-size:11px;font-weight:700;color:var(--muted);display:block;letter-spacing:2px;-webkit-text-fill-color:var(--muted)}
+.admin-badge{background:rgba(124,58,237,0.2);border:1px solid rgba(124,58,237,0.4);color:#c084fc;font-size:12px;font-weight:800;padding:4px 14px;border-radius:20px}
+.nav-tabs{display:flex;gap:4px;padding:12px 24px;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto}
+.tab{padding:8px 18px;border-radius:20px;font-size:13px;font-weight:800;cursor:pointer;border:1px solid var(--border);color:var(--muted);background:transparent;white-space:nowrap;transition:all .2s}
+.tab.active{background:linear-gradient(135deg,var(--purple),var(--purple2));color:#fff;border-color:transparent}
+.content{padding:20px 24px;max-width:1100px;margin:0 auto}
+.section{display:none}.section.active{display:block}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-bottom:14px}
+.card-title{font-size:15px;font-weight:800;margin-bottom:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:640px){.grid2,.grid3{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.field label{font-size:12px;font-weight:800;color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
+.field input,.field select,.field textarea{background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;outline:none;transition:border .2s;width:100%}
+.field input:focus,.field select:focus{border-color:var(--purple)}
+.field input::placeholder{color:var(--hint)}
+.field select option{background:#1e1060;color:#fff}
+.btn{padding:10px 20px;border-radius:10px;border:none;font-family:'Nunito',sans-serif;font-size:14px;font-weight:800;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:linear-gradient(135deg,var(--purple),var(--purple2));color:#fff}
+.btn-success{background:rgba(74,222,128,0.15);color:var(--green);border:1px solid rgba(74,222,128,0.3)}
+.btn-danger{background:rgba(248,113,113,0.15);color:var(--red);border:1px solid rgba(248,113,113,0.3)}
+.btn-gold{background:linear-gradient(135deg,#b45309,#d97706);color:#fff}
+.btn-blue{background:rgba(96,165,250,0.15);color:var(--blue);border:1px solid rgba(96,165,250,0.3)}
+.btn-pause{background:rgba(249,199,79,0.15);color:var(--gold);border:1px solid rgba(249,199,79,0.3)}
+.btn:hover{opacity:.85;transform:translateY(-1px)}
+.btn:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.badge{font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;display:inline-block}
+.badge-pendiente{background:rgba(249,199,79,0.15);color:var(--gold);border:1px solid rgba(249,199,79,0.3)}
+.badge-aprobado{background:rgba(74,222,128,0.15);color:var(--green);border:1px solid rgba(74,222,128,0.3)}
+.badge-rechazado{background:rgba(248,113,113,0.15);color:var(--red);border:1px solid rgba(248,113,113,0.3)}
+.badge-abierta{background:rgba(96,165,250,0.15);color:var(--blue);border:1px solid rgba(96,165,250,0.3)}
+.badge-en_curso{background:rgba(74,222,128,0.15);color:var(--green);border:1px solid rgba(74,222,128,0.3)}
+.badge-finalizada{background:rgba(255,255,255,0.08);color:var(--muted);border:1px solid var(--border)}
+.tabla{width:100%;border-collapse:collapse;font-size:13px}
+.tabla th{padding:10px 12px;text-align:left;font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--border)}
+.tabla td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:middle}
+.stat{background:rgba(255,255,255,0.04);border-radius:10px;padding:14px;text-align:center}
+.stat-num{font-size:28px;font-weight:900;line-height:1}
+.stat-label{font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-top:4px}
+.ronda-row{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:8px}
+.ronda-row input{flex:1;background:transparent;border:none;color:var(--text);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;outline:none}
+.ronda-num{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--purple),var(--purple2));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;flex-shrink:0}
+/* SORTEO */
+.bola-display{width:110px;height:110px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--orange));display:flex;flex-direction:column;align-items:center;justify-content:center;margin:0 auto 16px;font-weight:900;transition:all .3s}
+.bola-display.nueva{animation:bolaIn .4s ease}
+@keyframes bolaIn{0%{transform:scale(0.5);opacity:0}60%{transform:scale(1.2)}100%{transform:scale(1);opacity:1}}
+.bola-letra{font-size:16px;color:rgba(255,255,255,0.85);line-height:1}
+.bola-numero{font-size:42px;line-height:1.1}
+.bolas-lista{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;max-height:200px;overflow-y:auto}
+.bola-item{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900}
+.bola-B{background:#4361ee}.bola-I{background:#7209b7}.bola-N{background:#f3722c}
+.bola-G{background:#4cc9f0;color:#0a2a38}.bola-O{background:#e63946}
+/* COUNTDOWN */
+.countdown-display{font-size:64px;font-weight:900;text-align:center;color:var(--gold);line-height:1;margin:10px 0}
+.countdown-label{text-align:center;font-size:13px;color:var(--muted);font-weight:700;margin-bottom:10px}
+.progreso-bola{height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;margin:10px 0}
+.progreso-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--purple),var(--purple2));transition:width 1s linear}
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px 20px;font-size:14px;font-weight:700;z-index:999;transform:translateY(80px);opacity:0;transition:all .3s;max-width:320px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.ok{border-color:rgba(74,222,128,0.4);color:var(--green)}
+.toast.err{border-color:rgba(248,113,113,0.4);color:var(--red)}
+.toast.info{border-color:rgba(96,165,250,0.4);color:var(--blue)}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.hidden{display:none}
+.modal{background:#1a0a4e;border:1px solid var(--border);border-radius:16px;padding:24px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto}
+.modal-title{font-size:17px;font-weight:900;margin-bottom:16px}
+.empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:14px}
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.login-card{background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:32px;width:100%;max-width:380px}
+.login-logo{font-size:32px;font-weight:900;background:linear-gradient(90deg,var(--gold),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-align:center;margin-bottom:4px}
+.login-sub{text-align:center;font-size:13px;color:var(--muted);margin-bottom:24px;font-weight:700}
+</style>
+</head>
+<body>
+
+<div id="login-screen" class="login-wrap">
+  <div class="login-card">
+    <div class="login-logo">BingoYa</div>
+    <div class="login-sub">Panel de administración</div>
+    <div class="field"><label>Email admin</label><input type="email" id="login-email" placeholder="admin@bingoya.com"></div>
+    <div class="field"><label>Contraseña</label><input type="password" id="login-pass" placeholder="••••••••"></div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:4px" onclick="doLogin()">Ingresar</button>
+    <div id="login-err" style="color:var(--red);font-size:13px;text-align:center;margin-top:10px;display:none"></div>
+  </div>
+</div>
+
+<div id="app" style="display:none">
+  <div class="topbar">
+    <div class="logo">BingoYa<small>ADMIN</small></div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span class="admin-badge">Administrador</span>
+      <button class="btn btn-danger" style="padding:6px 14px;font-size:12px" onclick="doLogout()">Salir</button>
+    </div>
+  </div>
+  <div class="nav-tabs">
+    <div class="tab active" onclick="showTab('dashboard',this)">Dashboard</div>
+    <div class="tab" onclick="showTab('partidas',this)">Partidas</div>
+    <div class="tab" onclick="showTab('cartones',this)">Aprobación</div>
+    <div class="tab" onclick="showTab('sorteo',this)">Sorteo en vivo</div>
+    <div class="tab" onclick="showTab('jugadores',this)">Jugadores</div>
+  </div>
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div id="sec-dashboard" class="section active">
+      <div class="grid3" style="margin-bottom:16px">
+        <div class="stat"><div class="stat-num" id="st-partidas" style="color:var(--blue)">-</div><div class="stat-label">Partidas activas</div></div>
+        <div class="stat"><div class="stat-num" id="st-pendientes" style="color:var(--gold)">-</div><div class="stat-label">Cartones pendientes</div></div>
+        <div class="stat"><div class="stat-num" id="st-jugadores" style="color:var(--green)">-</div><div class="stat-label">Jugadores registrados</div></div>
+      </div>
+      <div class="card"><div class="card-title">Partidas recientes</div><div id="dash-partidas"><div class="empty">Cargando...</div></div></div>
+    </div>
+
+    <!-- PARTIDAS -->
+    <div id="sec-partidas" class="section">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div style="font-size:18px;font-weight:900">Partidas</div>
+        <button class="btn btn-primary" onclick="abrirModalPartida()">+ Nueva partida</button>
+      </div>
+      <div id="lista-partidas"><div class="empty">Cargando...</div></div>
+    </div>
+
+    <!-- CARTONES -->
+    <div id="sec-cartones" class="section">
+      <div style="font-size:18px;font-weight:900;margin-bottom:4px">Aprobación de cartones</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:16px">Revisa el comprobante y aprueba o rechaza</div>
+      <select id="filtro-partida-cartones" style="background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:10px;padding:8px 14px;color:var(--text);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;outline:none;width:100%;max-width:320px;margin-bottom:12px" onchange="cargarCartonesPendientes()">
+        <option value="">Todas las partidas</option>
+      </select>
+      <div id="lista-cartones"><div class="empty">Cargando...</div></div>
+    </div>
+
+    <!-- SORTEO -->
+    <div id="sec-sorteo" class="section">
+      <div style="font-size:18px;font-weight:900;margin-bottom:16px">Sorteo en vivo</div>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title">Control</div>
+          <div class="field"><label>Partida</label>
+            <select id="sorteo-partida" onchange="cargarRondasSorteo()">
+              <option value="">— selecciona —</option>
+            </select>
+          </div>
+          <div class="field"><label>Ronda</label>
+            <select id="sorteo-ronda"><option value="">— selecciona partida primero —</option></select>
+          </div>
+          <!-- COUNTDOWN -->
+          <div id="countdown-panel" style="display:none;text-align:center;margin:10px 0">
+            <div class="countdown-label" id="countdown-label">La partida inicia en...</div>
+            <div class="countdown-display" id="countdown-num">--</div>
+          </div>
+          <!-- PROGRESO BOLA -->
+          <div id="progreso-panel" style="display:none">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-weight:800;margin-bottom:4px">
+              <span>Próxima bola en...</span>
+              <span id="progreso-seg">15s</span>
+            </div>
+            <div class="progreso-bola"><div class="progreso-fill" id="progreso-fill" style="width:100%"></div></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+            <button class="btn btn-success" id="btn-iniciar-ronda" onclick="iniciarRondaConCountdown()" disabled>▶ Iniciar ronda</button>
+            <button class="btn btn-pause" id="btn-pausar" onclick="pausarReanudar()" disabled style="display:none">⏸ Pausar</button>
+            <button class="btn btn-danger" id="btn-fin-ronda" onclick="finalizarRonda()" disabled>⏹ Fin ronda</button>
+          </div>
+        </div>
+        <div class="card" style="text-align:center">
+          <div class="card-title" style="justify-content:center">Bola actual</div>
+          <div class="bola-display" id="bola-display">
+            <div class="bola-letra">—</div>
+            <div class="bola-numero">?</div>
+          </div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:8px">Sorteadas: <strong id="bolas-count" style="color:var(--text)">0</strong> / 75</div>
+          <div class="bolas-lista" id="bolas-lista"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:0">
+        <div class="card-title">Solicitudes de BINGO</div>
+        <div id="lista-bingos"><div class="empty">Sin solicitudes aún</div></div>
+      </div>
+    </div>
+
+    <!-- JUGADORES -->
+    <div id="sec-jugadores" class="section">
+      <div style="font-size:18px;font-weight:900;margin-bottom:16px">Jugadores registrados</div>
+      <div class="card"><div id="lista-jugadores"><div class="empty">Cargando...</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NUEVA PARTIDA -->
+<div class="modal-overlay hidden" id="modal-partida">
+  <div class="modal">
+    <div class="modal-title">Nueva partida</div>
+    <div class="field"><label>Nombre</label><input type="text" id="p-nombre" placeholder="Gran Bingo del Viernes"></div>
+    <div class="field"><label>Descripción (opcional)</label><input type="text" id="p-desc" placeholder="Descripción de la partida"></div>
+    <div class="grid2">
+      <div class="field"><label>Precio por cartón ($)</label><input type="number" id="p-precio" placeholder="5000" min="0"></div>
+      <div class="field"><label>Máx. cartones (obligatorio)</label><input type="number" id="p-max" placeholder="100" min="1"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Fecha y hora de inicio</label><input type="datetime-local" id="p-fecha"></div>
+      <div class="field"><label>Cuenta regresiva (segundos)</label><input type="number" id="p-countdown" placeholder="60" min="10" max="300" value="60"></div>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:12px;font-weight:800;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px">Rondas y premios</div>
+      <div id="rondas-editor"></div>
+      <button class="btn btn-blue" style="font-size:12px;padding:7px 14px;margin-top:4px" onclick="agregarRonda()">+ Agregar ronda</button>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn" style="border:1px solid var(--border)" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="crearPartida()">Crear partida</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://xmnnookdakkfrqupqbkm.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhtbm5vb2tkYWtrZnJxdXBxYmttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMzcxNTksImV4cCI6MjA5NzcxMzE1OX0.-E7NOn5p_c0ROcUYrqOgjCg2oewWjmHbWgGsR9CX6WY';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ─── ESTADO SORTEO ────────────────────────
+let bolasSorteadas = [];
+let rondaActiva    = null;
+let sorteoTimer    = null;
+let countdownTimer = null;
+let pausado        = false;
+let segundosRestantes = 15;
+let countdownPartida  = 60;
+
+// ─── AUTH ─────────────────────────────────
+async function doLogin(){
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  const {error} = await sb.auth.signInWithPassword({email,password:pass});
+  if(error){ const el=document.getElementById('login-err'); el.textContent='Credenciales incorrectas'; el.style.display='block'; return; }
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+  initApp();
+}
+async function doLogout(){ await sb.auth.signOut(); location.reload(); }
+sb.auth.onAuthStateChange((_,session)=>{ if(session){ document.getElementById('login-screen').style.display='none'; document.getElementById('app').style.display='block'; initApp(); } });
+
+// ─── TABS ─────────────────────────────────
+function showTab(id,el){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('sec-'+id).classList.add('active');
+  el.classList.add('active');
+  if(id==='cartones') cargarCartonesPendientes();
+  if(id==='sorteo')   { cargarPartidasSorteo(); cargarBingosPendientes(); }
+  if(id==='jugadores') cargarJugadores();
+  if(id==='partidas') cargarPartidas();
+  if(id==='dashboard') cargarDashboard();
+}
+
+// ─── INIT ─────────────────────────────────
+async function initApp(){ await cargarDashboard(); await cargarPartidas(); }
+
+// ─── TOAST ────────────────────────────────
+function toast(msg,tipo='ok'){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast show '+tipo;
+  setTimeout(()=>t.className='toast',3500);
+}
+
+// ─── DASHBOARD ────────────────────────────
+async function cargarDashboard(){
+  const [{data:p},{data:c},{data:j}] = await Promise.all([
+    sb.from('partidas').select('id').in('estado',['abierta','en_curso']),
+    sb.from('cartones').select('id').eq('estado','pendiente'),
+    sb.from('jugadores').select('id')
+  ]);
+  document.getElementById('st-partidas').textContent   = p?.length??0;
+  document.getElementById('st-pendientes').textContent = c?.length??0;
+  document.getElementById('st-jugadores').textContent  = j?.length??0;
+  const {data:recientes} = await sb.from('partidas').select('*').order('created_at',{ascending:false}).limit(5);
+  const el = document.getElementById('dash-partidas');
+  if(!recientes?.length){ el.innerHTML='<div class="empty">Sin partidas aún</div>'; return; }
+  el.innerHTML=`<table class="tabla"><thead><tr><th>Nombre</th><th>Precio</th><th>Estado</th><th>Fecha</th></tr></thead><tbody>
+    ${recientes.map(p=>`<tr><td style="font-weight:800">${p.nombre}</td><td>$${Number(p.precio_carton).toLocaleString('es-CO')}</td><td><span class="badge badge-${p.estado}">${p.estado}</span></td><td style="color:var(--muted);font-size:12px">${p.fecha_inicio?new Date(p.fecha_inicio).toLocaleString('es-CO'):'—'}</td></tr>`).join('')}
+  </tbody></table>`;
+}
+
+// ─── PARTIDAS ─────────────────────────────
+async function cargarPartidas(){
+  const {data} = await sb.from('partidas').select('*,rondas(*)').order('created_at',{ascending:false});
+  const el = document.getElementById('lista-partidas');
+  if(!data?.length){ el.innerHTML='<div class="empty">Sin partidas. ¡Crea la primera!</div>'; return; }
+  el.innerHTML = data.map(p=>`
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:16px;font-weight:900">${p.nombre}</div>
+          <div style="font-size:13px;color:var(--muted)">${p.descripcion||''}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <span class="badge badge-${p.estado}">${p.estado}</span>
+          ${p.estado==='abierta'?`<button class="btn btn-success" style="font-size:12px;padding:6px 12px" onclick="iniciarPartida('${p.id}')">▶ Iniciar</button>`:''}
+          ${p.estado==='en_curso'?`<button class="btn btn-pause" style="font-size:12px;padding:6px 12px" onclick="finalizarPartida('${p.id}')">⏹ Finalizar</button>`:''}
+          <button class="btn btn-danger" style="font-size:12px;padding:6px 12px" onclick="eliminarPartida('${p.id}','${p.nombre.replace(/'/g,"\\'")}')">🗑</button>
+        </div>
+      </div>
+      <div class="grid3" style="margin-top:12px">
+        <div><div style="font-size:11px;color:var(--muted);font-weight:800;text-transform:uppercase">Precio cartón</div><div style="font-weight:900;color:var(--gold)">$${Number(p.precio_carton).toLocaleString('es-CO')}</div></div>
+        <div><div style="font-size:11px;color:var(--muted);font-weight:800;text-transform:uppercase">Cartones</div><div style="font-weight:900">${p.max_cartones||'—'}</div></div>
+        <div><div style="font-size:11px;color:var(--muted);font-weight:800;text-transform:uppercase">Premio mayor</div><div style="font-weight:900;color:var(--gold)">$${Number(p.rondas?.find(r=>r.es_premio_mayor)?.premio||0).toLocaleString('es-CO')}</div></div>
+      </div>
+      ${p.rondas?.length?`<div style="margin-top:8px;display:flex;gap:5px;flex-wrap:wrap">${p.rondas.sort((a,b)=>a.numero_ronda-b.numero_ronda).map(r=>`<span style="background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:20px;padding:2px 10px;font-size:11px;font-weight:800;color:${r.es_premio_mayor?'var(--gold)':'var(--muted)'}">${r.nombre||'Ronda '+r.numero_ronda} · $${Number(r.premio).toLocaleString('es-CO')}</span>`).join('')}</div>`:''}
+    </div>`).join('');
+}
+
+async function iniciarPartida(id){
+  if(!confirm('¿Iniciar esta partida?')) return;
+  await sb.from('partidas').update({estado:'en_curso'}).eq('id',id);
+  toast('Partida iniciada'); cargarPartidas(); cargarDashboard();
+}
+async function finalizarPartida(id){
+  if(!confirm('¿Finalizar esta partida?')) return;
+  detenerSorteo();
+  await sb.from('partidas').update({estado:'finalizada'}).eq('id',id);
+  toast('Partida finalizada'); cargarPartidas(); cargarDashboard();
+}
+async function eliminarPartida(id,nombre){
+  if(!confirm(`¿Eliminar "${nombre}"? Se elimina todo.`)) return;
+  detenerSorteo();
+  const {data:rondas} = await sb.from('rondas').select('id').eq('partida_id',id);
+  if(rondas?.length) await sb.from('bolas_sorteadas').delete().in('ronda_id',rondas.map(r=>r.id));
+  await sb.from('chat_mensajes').delete().eq('partida_id',id);
+  await sb.from('transacciones').delete().eq('partida_id',id);
+  await sb.from('cartones').delete().eq('partida_id',id);
+  await sb.from('rondas').delete().eq('partida_id',id);
+  const {error} = await sb.from('partidas').delete().eq('id',id);
+  if(error) toast('Error: '+error.message,'err');
+  else { toast('Partida eliminada'); cargarPartidas(); cargarDashboard(); }
+}
+
+// ─── MODAL PARTIDA ────────────────────────
+let rondasEditor = [];
+function abrirModalPartida(){
+  rondasEditor=[];
+  ['p-nombre','p-desc','p-precio','p-max','p-fecha'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('p-countdown').value='60';
+  renderRondasEditor();
+  document.getElementById('modal-partida').classList.remove('hidden');
+}
+function cerrarModal(){ document.getElementById('modal-partida').classList.add('hidden'); }
+function agregarRonda(){ rondasEditor.push({nombre:'',premio:''}); renderRondasEditor(); }
+function renderRondasEditor(){
+  const el=document.getElementById('rondas-editor');
+  if(!rondasEditor.length){ el.innerHTML='<div style="font-size:13px;color:var(--muted);text-align:center;padding:10px">Agrega al menos una ronda</div>'; return; }
+  el.innerHTML=rondasEditor.map((r,i)=>`
+    <div class="ronda-row">
+      <div class="ronda-num">${i+1}</div>
+      <input type="text" placeholder="Nombre ronda ${i+1}" value="${r.nombre}" oninput="rondasEditor[${i}].nombre=this.value" style="flex:2">
+      <input type="number" placeholder="Premio $" value="${r.premio}" oninput="rondasEditor[${i}].premio=this.value" style="flex:1;min-width:90px">
+      ${i===rondasEditor.length-1?'<span style="font-size:10px;color:var(--gold);font-weight:800;white-space:nowrap">MAYOR</span>':''}
+      <button onclick="rondasEditor.splice(${i},1);renderRondasEditor()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px">×</button>
+    </div>`).join('');
+}
+
+function generarCarton(){
+  const rangos=[[1,15],[16,30],[31,45],[46,60],[61,75]];
+  return rangos.map((r,ci)=>{
+    const nums=[];
+    while(nums.length<5){ const n=Math.floor(Math.random()*(r[1]-r[0]+1))+r[0]; if(!nums.includes(n)) nums.push(n); }
+    if(ci===2) nums[2]=0;
+    return nums;
+  });
+}
+
+async function crearPartida(){
+  const nombre  = document.getElementById('p-nombre').value.trim();
+  const desc    = document.getElementById('p-desc').value.trim();
+  const precio  = parseFloat(document.getElementById('p-precio').value);
+  const maxC    = parseInt(document.getElementById('p-max').value);
+  const fecha   = document.getElementById('p-fecha').value;
+  const cd      = parseInt(document.getElementById('p-countdown').value)||60;
+
+  if(!nombre){ toast('El nombre es obligatorio','err'); return; }
+  if(!precio||precio<=0){ toast('El precio del cartón es obligatorio','err'); return; }
+  if(!maxC||maxC<=0){ toast('El máximo de cartones es obligatorio','err'); return; }
+  if(!rondasEditor.length){ toast('Agrega al menos una ronda','err'); return; }
+  if(rondasEditor.some(r=>!r.premio||r.premio<=0)){ toast('Todas las rondas deben tener premio','err'); return; }
+
+  const {data:partida,error} = await sb.from('partidas').insert({
+    nombre, descripcion:desc||null, precio_carton:precio,
+    max_cartones:maxC, fecha_inicio:fecha||null, estado:'abierta',
+    countdown_segundos:cd
+  }).select().single();
+  if(error){ toast('Error: '+error.message,'err'); return; }
+
+  await sb.from('rondas').insert(rondasEditor.map((r,i)=>({
+    partida_id:partida.id, numero_ronda:i+1,
+    nombre:r.nombre||`Ronda ${i+1}`,
+    premio:parseFloat(r.premio),
+    es_premio_mayor:i===rondasEditor.length-1, estado:'pendiente'
+  })));
+
+  toast(`Generando ${maxC} cartones...`,'info');
+  const LOTE=20;
+  for(let ini=0;ini<maxC;ini+=LOTE){
+    const lote=[];
+    for(let i=ini;i<Math.min(ini+LOTE,maxC);i++){
+      lote.push({partida_id:partida.id,jugador_id:null,transaccion_id:null,numero_carton:i+1,numeros:generarCarton(),estado:'disponible'});
+    }
+    await sb.from('cartones').insert(lote);
+  }
+  toast(`✅ Partida creada con ${maxC} cartones`);
+  cerrarModal(); cargarPartidas(); cargarDashboard();
+}
+
+// ─── CARTONES PENDIENTES ──────────────────
+async function cargarCartonesPendientes(){
+  const filtro = document.getElementById('filtro-partida-cartones').value;
+  const {data:pds} = await sb.from('partidas').select('id,nombre').order('created_at',{ascending:false});
+  const sel = document.getElementById('filtro-partida-cartones');
+  const val = sel.value;
+  sel.innerHTML='<option value="">Todas las partidas</option>';
+  pds?.forEach(p=>sel.innerHTML+=`<option value="${p.id}" ${p.id===val?'selected':''}>${p.nombre}</option>`);
+
+  let q = sb.from('cartones').select('*,jugadores(nombre,email,telefono),partidas(nombre,precio_carton),transacciones(referencia_pago,monto_total)').eq('estado','pendiente').order('created_at',{ascending:true});
+  if(filtro) q=q.eq('partida_id',filtro);
+  const {data} = await q;
+  const el = document.getElementById('lista-cartones');
+  if(!data?.length){ el.innerHTML='<div class="empty">Sin cartones pendientes 🎉</div>'; return; }
+  el.innerHTML=data.map(c=>`
+    <div class="card" style="margin-bottom:12px" id="carton-${c.id}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:15px;font-weight:900">${c.jugadores?.nombre||'Sin nombre'}</div>
+          <div style="font-size:13px;color:var(--muted)">Partida: <strong style="color:var(--text)">${c.partidas?.nombre}</strong></div>
+          <div style="font-size:13px;color:var(--muted)">Cartón #${c.numero_carton} · <strong style="color:var(--gold)">$${Number(c.transacciones?.monto_total||0).toLocaleString('es-CO')}</strong></div>
+          <div style="font-size:12px;color:var(--blue);margin-top:2px">Ref: ${c.transacciones?.referencia_pago||'Sin referencia'}</div>
+          ${c.jugadores?.telefono?`<div style="font-size:12px;color:var(--muted)">Tel: ${c.jugadores.telefono}</div>`:''}
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-success" style="font-size:12px;padding:6px 12px" onclick="aprobarCarton('${c.id}','${c.jugador_id}')">✓ Aprobar</button>
+          <button class="btn btn-danger" style="font-size:12px;padding:6px 12px" onclick="rechazarCarton('${c.id}','${c.jugador_id}')">✗ Rechazar</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+async function aprobarCarton(id,jugadorId){
+  await sb.from('cartones').update({estado:'aprobado'}).eq('id',id);
+  await sb.from('notificaciones').insert({jugador_id:jugadorId,tipo:'carton_aprobado',mensaje:'¡Tu cartón ha sido aprobado! Ya puedes participar en el sorteo.',canal:'pantalla'});
+  document.getElementById('carton-'+id)?.remove();
+  toast('Cartón aprobado'); cargarDashboard();
+}
+async function rechazarCarton(id,jugadorId){
+  const nota=prompt('Motivo del rechazo (opcional):');
+  await sb.from('cartones').update({estado:'rechazado'}).eq('id',id);
+  await sb.from('notificaciones').insert({jugador_id:jugadorId,tipo:'carton_rechazado',mensaje:`Tu cartón fue rechazado.${nota?' Motivo: '+nota:''}`,canal:'pantalla'});
+  document.getElementById('carton-'+id)?.remove();
+  toast('Cartón rechazado');
+}
+
+// ─── SORTEO AUTOMÁTICO ────────────────────
+async function cargarPartidasSorteo(){
+  const {data} = await sb.from('partidas').select('id,nombre,countdown_segundos').in('estado',['abierta','en_curso']);
+  const sel = document.getElementById('sorteo-partida');
+  sel.innerHTML='<option value="">— selecciona —</option>';
+  data?.forEach(p=>sel.innerHTML+=`<option value="${p.id}" data-cd="${p.countdown_segundos||60}">${p.nombre}</option>`);
+}
+
+async function cargarRondasSorteo(){
+  const pid = document.getElementById('sorteo-partida').value;
+  const sel = document.getElementById('sorteo-ronda');
+  if(!pid){ sel.innerHTML='<option value="">— selecciona partida —</option>'; return; }
+  const {data} = await sb.from('rondas').select('*').eq('partida_id',pid).order('numero_ronda');
+  sel.innerHTML=data?.map(r=>`<option value="${r.id}" data-estado="${r.estado}">${r.nombre||'Ronda '+r.numero_ronda} · $${Number(r.premio).toLocaleString('es-CO')} ${r.estado==='activa'?'(EN CURSO)':r.estado==='finalizada'?'(FIN)':''}</option>`).join('')||'<option>Sin rondas</option>';
+  document.getElementById('btn-iniciar-ronda').disabled=false;
+  // Obtener countdown de la partida seleccionada
+  const opt = document.querySelector('#sorteo-partida option:checked');
+  countdownPartida = parseInt(opt?.dataset?.cd)||60;
+}
+
+function letraBola(n){ if(n<=15)return'B'; if(n<=30)return'I'; if(n<=45)return'N'; if(n<=60)return'G'; return'O'; }
+
+async function iniciarRondaConCountdown(){
+  const rid = document.getElementById('sorteo-ronda').value;
+  if(!rid){ toast('Selecciona una ronda','err'); return; }
+
+  // Activar ronda en BD
+  await sb.from('rondas').update({estado:'activa'}).eq('id',rid);
+  rondaActiva=rid; bolasSorteadas=[];
+  document.getElementById('bolas-lista').innerHTML='';
+  document.getElementById('bolas-count').textContent='0';
+  document.getElementById('bola-display').innerHTML='<div class="bola-letra">—</div><div class="bola-numero">?</div>';
+
+  // Deshabilitar botones durante countdown
+  document.getElementById('btn-iniciar-ronda').disabled=true;
+  document.getElementById('btn-fin-ronda').disabled=true;
+
+  // Mostrar countdown
+  const panel = document.getElementById('countdown-panel');
+  panel.style.display='block';
+  document.getElementById('countdown-label').textContent='La ronda inicia en...';
+
+  let seg = countdownPartida;
+  document.getElementById('countdown-num').textContent=seg;
+
+  countdownTimer = setInterval(async()=>{
+    seg--;
+    document.getElementById('countdown-num').textContent=seg;
+    if(seg<=0){
+      clearInterval(countdownTimer);
+      panel.style.display='none';
+      document.getElementById('btn-fin-ronda').disabled=false;
+      document.getElementById('btn-pausar').style.display='inline-flex';
+      document.getElementById('btn-pausar').disabled=false;
+      toast('¡Ronda iniciada! Sorteando automáticamente cada 15 segundos','ok');
+      await sortearSiguienteBola();
+      iniciarSorteoAutomatico();
+    }
+  },1000);
+}
+
+function iniciarSorteoAutomatico(){
+  detenerSorteoTimer();
+  segundosRestantes=15;
+  document.getElementById('progreso-panel').style.display='block';
+  document.getElementById('progreso-fill').style.width='100%';
+  document.getElementById('progreso-seg').textContent='15s';
+
+  sorteoTimer = setInterval(async()=>{
+    if(pausado) return;
+    segundosRestantes--;
+    const pct = (segundosRestantes/15)*100;
+    document.getElementById('progreso-fill').style.width=pct+'%';
+    document.getElementById('progreso-seg').textContent=segundosRestantes+'s';
+    if(segundosRestantes<=0){
+      segundosRestantes=15;
+      document.getElementById('progreso-fill').style.width='100%';
+      document.getElementById('progreso-seg').textContent='15s';
+      await sortearSiguienteBola();
+    }
+  },1000);
+}
+
+async function sortearSiguienteBola(){
+  if(!rondaActiva) return;
+  const disponibles=[];
+  for(let i=1;i<=75;i++) if(!bolasSorteadas.includes(i)) disponibles.push(i);
+  if(!disponibles.length){ toast('¡Todas las bolas sorteadas!','info'); detenerSorteo(); return; }
+
+  const num=disponibles[Math.floor(Math.random()*disponibles.length)];
+  const letra=letraBola(num);
+  await sb.from('bolas_sorteadas').insert({ronda_id:rondaActiva,numero:num,letra,orden:bolasSorteadas.length+1});
+  bolasSorteadas.push(num);
+
+  const bd=document.getElementById('bola-display');
+  bd.innerHTML=`<div class="bola-letra">${letra}</div><div class="bola-numero">${num}</div>`;
+  bd.classList.remove('nueva'); void bd.offsetWidth; bd.classList.add('nueva');
+  document.getElementById('bolas-count').textContent=bolasSorteadas.length;
+
+  const el=document.createElement('div');
+  el.className=`bola-item bola-${letra}`; el.textContent=num;
+  document.getElementById('bolas-lista').prepend(el);
+}
+
+function pausarReanudar(){
+  pausado=!pausado;
+  const btn=document.getElementById('btn-pausar');
+  btn.textContent=pausado?'▶ Reanudar':'⏸ Pausar';
+  btn.className=pausado?'btn btn-success':'btn btn-pause';
+  toast(pausado?'Sorteo pausado':'Sorteo reanudado', pausado?'info':'ok');
+}
+
+function detenerSorteoTimer(){
+  if(sorteoTimer){ clearInterval(sorteoTimer); sorteoTimer=null; }
+}
+
+function detenerSorteo(){
+  detenerSorteoTimer();
+  if(countdownTimer){ clearInterval(countdownTimer); countdownTimer=null; }
+  pausado=false;
+  document.getElementById('progreso-panel').style.display='none';
+  document.getElementById('countdown-panel').style.display='none';
+  document.getElementById('btn-pausar').style.display='none';
+}
+
+async function finalizarRonda(){
+  if(!rondaActiva||!confirm('¿Finalizar esta ronda?')) return;
+  detenerSorteo();
+  await sb.from('rondas').update({estado:'finalizada'}).eq('id',rondaActiva);
+  rondaActiva=null;
+  document.getElementById('btn-sortear') && (document.getElementById('btn-sortear').disabled=true);
+  document.getElementById('btn-fin-ronda').disabled=true;
+  document.getElementById('btn-iniciar-ronda').disabled=false;
+  toast('Ronda finalizada');
+  cargarRondasSorteo();
+}
+
+// ─── BINGOS PENDIENTES ────────────────────
+async function cargarBingosPendientes(){
+  const {data} = await sb.from('notificaciones').select('*,jugadores(nombre)').eq('tipo','ganador').eq('leida',false).order('created_at',{ascending:false});
+  const el=document.getElementById('lista-bingos');
+  if(!data?.length){ el.innerHTML='<div class="empty">Sin solicitudes aún</div>'; return; }
+  el.innerHTML=data.map(n=>`
+    <div style="background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.3);border-radius:10px;padding:10px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:14px;font-weight:800;color:var(--green)">🎉 ${n.jugadores?.nombre||'Jugador'}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">${n.mensaje}</div>
+        <div style="font-size:11px;color:var(--muted)">${new Date(n.created_at).toLocaleTimeString('es-CO')}</div>
+      </div>
+      <button class="btn btn-success" style="font-size:12px;padding:6px 12px" onclick="marcarBingoLeido('${n.id}')">✓ Visto</button>
+    </div>`).join('');
+}
+async function marcarBingoLeido(id){ await sb.from('notificaciones').update({leida:true}).eq('id',id); cargarBingosPendientes(); }
+
+// ─── JUGADORES ────────────────────────────
+async function cargarJugadores(){
+  const {data} = await sb.from('jugadores').select('*').order('created_at',{ascending:false});
+  const el=document.getElementById('lista-jugadores');
+  if(!data?.length){ el.innerHTML='<div class="empty">Sin jugadores</div>'; return; }
+  el.innerHTML=`<table class="tabla"><thead><tr><th>Nombre</th><th>Usuario</th><th>Teléfono</th><th>País</th><th>Registro</th></tr></thead><tbody>
+    ${data.map(j=>`<tr><td style="font-weight:800">${j.nombre}</td><td style="color:var(--muted)">@${j.username||'—'}</td><td style="color:var(--muted)">${j.telefono||'—'}</td><td>${j.pais||'—'}</td><td style="color:var(--muted);font-size:12px">${new Date(j.created_at).toLocaleDateString('es-CO')}</td></tr>`).join('')}
+  </tbody></table>`;
+}
+
+// ─── EVENTS ───────────────────────────────
+document.getElementById('login-email').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('login-pass').focus(); });
+document.getElementById('login-pass').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
+document.getElementById('modal-partida').addEventListener('click',e=>{ if(e.target===document.getElementById('modal-partida')) cerrarModal(); });
+</script>
+</body>
+</html>
